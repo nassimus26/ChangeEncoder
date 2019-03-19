@@ -6,6 +6,7 @@ import org.apache.tika.parser.txt.CharsetDetector;
 import org.apache.tika.parser.txt.CharsetMatch;
 
 import java.io.*;
+import java.util.List;
 
 public class FolderEncoder {
 
@@ -19,8 +20,13 @@ public class FolderEncoder {
                 .description("Re-encode folder content with a new encoding recursively.");
         parser.addArgument("-p", "--path")
                 .help("Path of the Folder");
-        parser.addArgument("-e", "--encoding")
+        parser.addArgument("-enc", "--encoding")
+                .help("The new file encoding")
                 .choices(charsetsToBeTested).setDefault("UTF-8");
+        parser.addArgument("-in_exts", "--in_extentions")
+                .help("File extentions separated by ',' to be included");
+        parser.addArgument("-ex_exts", "--ex_extentions")
+                .help("File extentions separated by ',' to be excluded");
         Namespace ns = null;
         try {
             ns = parser.parseArgs(args);
@@ -33,18 +39,48 @@ public class FolderEncoder {
             parser.printHelp();
             System.exit(1);
         }
+        String in_exts = ns.getString("in_extentions");
+        String[] in_exts_ = null;
+        if (in_exts!=null)
+            in_exts_ = in_exts.split(",");
+        String ex_exts = ns.getString("ex_extentions");
+        String[] ex_exts_ = null;
+        if (ex_exts!=null)
+            ex_exts_ = ex_exts.split(",");
         File folder = new File(path);
-        encode(folder, ns.getString("encoding"));
+        encode(folder, ns.getString("encoding"), in_exts_, ex_exts_);
         System.out.println("----> Task ends : "+nbrVisitedFiles+" files visited, re-encoding "+nbrFiles+" files.");
     }
 
-    private static void encode(File folder, String targetEncoding) {
+    private static void encode(File folder, String targetEncoding, String[] in_exts, String[] ex_exts) {
         for (File file :folder.listFiles()) {
             CharsetMatch charsetMatch = null;
             if (!file.isFile())
-                encode(file, targetEncoding);
+                encode(file, targetEncoding, in_exts, ex_exts);
             else {
                 nbrVisitedFiles++;
+                if (in_exts!=null) {
+                    boolean match = false;
+                    for (String ext : in_exts) {
+                        if (file.getName().endsWith("."+ext)){
+                            match = true;
+                            break;
+                        }
+                    }
+                    if (!match)
+                        continue;
+                }
+                if (ex_exts!=null) {
+                    boolean match = false;
+                    for (String ext : ex_exts) {
+                        if (file.getName().endsWith("."+ext)){
+                            match = true;
+                            break;
+                        }
+                    }
+                    if (match)
+                        continue;
+                }
                 try (InputStream is = new BufferedInputStream(new FileInputStream(file))) {
                     charsetMatch = charsetDetector.setText(is).detect();
                 } catch (Exception e) {
