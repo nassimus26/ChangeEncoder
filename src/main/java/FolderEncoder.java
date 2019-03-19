@@ -93,6 +93,7 @@ public class FolderEncoder {
                     String originalName = file.getAbsolutePath();
                     String tmpName = originalName + "_tmp";
                     new File(tmpName).delete();
+                    boolean success = false;
                     if (file.renameTo(new File(tmpName))) {
                         File target = new File(originalName);
                         try (InputStreamReader br = new InputStreamReader(new FileInputStream(new File(tmpName)), charsetMatch.getName());
@@ -101,13 +102,14 @@ public class FolderEncoder {
                                 int read;
                                 while ((read = br.read(buffer)) != -1)
                                     bw.write(buffer, 0, read);
-                            new File(tmpName).delete();
                             nbrFiles++;
+                            success = true;
                         } catch (Exception e) {
                             new File(originalName).delete();
                             new File(tmpName).renameTo(new File(originalName));
                         }
-
+                        if (success)
+                            new File(tmpName).delete();
                     }
                 }
             }
