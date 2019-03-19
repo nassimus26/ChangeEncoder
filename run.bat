@@ -1,1 +1,1 @@
-java -cp ./target/FolderEncoder.jar FolderEncoder -p C:\APPLIS\HELIOSDEV\IntelliJWorkspace\extranet_ent_ope -in_exts java
+java -cp ./target/FolderEncoder.jar FolderEncoder -p C:\APPLIS\HELIOSDEV\IntelliJWorkspace\extranet_ent_ope -in_exts java,properties,csv
