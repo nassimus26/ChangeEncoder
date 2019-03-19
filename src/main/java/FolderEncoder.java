@@ -53,11 +53,9 @@ public class FolderEncoder {
     }
 
     private static void encode(File folder, String targetEncoding, String[] in_exts, String[] ex_exts) {
-        if (folder.listFiles()==null)
-            return;
         for (File file :folder.listFiles()) {
             CharsetMatch charsetMatch = null;
-            if (!file.isFile())
+            if (file.isDirectory())
                 encode(file, targetEncoding, in_exts, ex_exts);
             else {
                 nbrVisitedFiles++;
