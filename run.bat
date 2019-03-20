@@ -1,1 +1,1 @@
-java -cp ./target/FolderEncoder.jar FolderEncoder -p C:\APPLIS\HELIOSDEV\IntelliJWorkspace\extranet_ent_ope
+java -cp ./target/FolderEncoder.jar FolderEncoder -p C:\APPLIS\HELIOSDEV\IntelliJWorkspace\extranet_ent_ope -exc .*\.idea.*,.*\.svn.*
