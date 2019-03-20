@@ -21,10 +21,10 @@ public class FolderEncoder {
         parser.addArgument("-enc", "--encoding")
                 .help("The new file encoding")
                 .choices(charsetsToBeTested).setDefault("UTF-8");
-        parser.addArgument("-in_exts", "--in_extentions")
-                .help("File extentions separated by ',' to be included");
-        parser.addArgument("-ex_exts", "--ex_extentions")
-                .help("File extentions separated by ',' to be excluded");
+        parser.addArgument("-inc", "--inc")
+                .help("Regular expressions for included paths separated by ',' ");
+        parser.addArgument("-exc", "--exc")
+                .help("Regular expressions for excluded paths separated by ',' ");
         Namespace ns = null;
         try {
             ns = parser.parseArgs(args);
@@ -37,11 +37,11 @@ public class FolderEncoder {
             parser.printHelp();
             System.exit(1);
         }
-        String in_exts = ns.getString("in_extentions");
+        String in_exts = ns.getString("inc");
         String[] in_exts_ = null;
         if (in_exts!=null)
             in_exts_ = in_exts.split(",");
-        String ex_exts = ns.getString("ex_extentions");
+        String ex_exts = ns.getString("exc");
         String[] ex_exts_ = null;
         if (ex_exts!=null)
             ex_exts_ = ex_exts.split(",");
@@ -60,7 +60,7 @@ public class FolderEncoder {
                 if (in_exts!=null) {
                     boolean match = false;
                     for (String ext : in_exts) {
-                        if (file.getName().endsWith("."+ext)){
+                        if (file.getAbsolutePath().matches(ext)){
                             match = true;
                             break;
                         }
@@ -71,7 +71,7 @@ public class FolderEncoder {
                 if (ex_exts!=null) {
                     boolean match = false;
                     for (String ext : ex_exts) {
-                        if (file.getName().endsWith("."+ext)){
+                        if (file.getAbsolutePath().matches(ext)){
                             match = true;
                             break;
                         }
@@ -79,6 +79,7 @@ public class FolderEncoder {
                     if (match)
                         continue;
                 }
+                System.out.println("Detecting file encoding for " + file.getAbsolutePath());
                 try (InputStream is = new BufferedInputStream(new FileInputStream(file))) {
                     charsetMatch = charsetDetector.setText(is).detect();
                 } catch (Exception e) {
