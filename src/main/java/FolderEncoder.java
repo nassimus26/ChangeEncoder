@@ -2,6 +2,7 @@ import net.sourceforge.argparse4j.ArgumentParsers;
 import net.sourceforge.argparse4j.inf.ArgumentParser;
 import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
+import org.apache.commons.io.FileUtils;
 import org.apache.tika.parser.txt.CharsetDetector;
 import org.apache.tika.parser.txt.CharsetMatch;
 import java.io.*;
@@ -94,21 +95,29 @@ public class FolderEncoder {
                     new File(tmpName).delete();
                     boolean success = false;
                     if (file.renameTo(new File(tmpName))) {
-                        File target = new File(originalName);
-                        try (InputStreamReader br = new InputStreamReader(new FileInputStream(new File(tmpName)), charsetMatch.getName());
-                             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(target), targetEncoding))){
-                                char[] buffer = new char[16384];
-                                int read;
-                                while ((read = br.read(buffer)) != -1)
-                                    bw.write(buffer, 0, read);
+                        try {
+                            String content = null;
+                            if (originalName.endsWith(".jsp"))
+                                content = "<%@ page contentType=\"text/html; charset=UTF-8\" %>\n";
+
+                            content += FileUtils.readFileToString(new File(tmpName), charsetMatch.getName());
+                            content = content.replaceAll("D:\\Donnees", "C:\\APPLIS");
+                            FileUtils.write(new File(originalName), content, "UTF-8");
+
                             nbrFiles++;
                             success = true;
                         } catch (Exception e) {
                             new File(originalName).delete();
                             new File(tmpName).renameTo(new File(originalName));
                         }
-                        if (success)
+                        if (success) {
                             new File(tmpName).delete();
+                            if (originalName.matches(".*src\\\\main\\\\java\\\\.*\\.properties")) {
+                                String newName = originalName.replace(".properties", ".utf8.properties");
+                                new File(newName).delete();
+                                new File(originalName).renameTo(new File(newName));
+                            }
+                        }
                     }
                 }
             }
