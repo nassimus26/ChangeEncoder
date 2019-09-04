@@ -126,8 +126,9 @@ public class FolderEncoder {
                                 }else
                                     content += header+fileContent;
                             }else {
-                                content += FileUtils.readFileToString(new File(tmpName), charsetMatch.getName()).replaceAll("ISO-8859-1", "UTF-8").replaceAll("iso-8859-1", "UTF-8");
+                                content += FileUtils.readFileToString(new File(tmpName), charsetMatch.getName());
                             }
+                            content = content.replaceAll("ISO-8859-1", "UTF-8").replaceAll("iso-8859-1", "UTF-8");
                             //content = content.replaceAll("D:\\Donnees", "C:\\APPLIS");
                             while (content.startsWith("null"))
                                 content = content.substring(4);
