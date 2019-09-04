@@ -6,6 +6,12 @@ import org.apache.commons.io.FileUtils;
 import org.apache.tika.parser.txt.CharsetDetector;
 import org.apache.tika.parser.txt.CharsetMatch;
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+
+import static net.sourceforge.argparse4j.ArgumentParsers.*;
 
 public class FolderEncoder {
 
@@ -14,7 +20,10 @@ public class FolderEncoder {
     static int nbrFiles = 0;
     static int nbrVisitedFiles = 0;
     public static void main(String[] args) {
-        ArgumentParser parser = ArgumentParsers.newFor("FolderEncoder").build()
+        if (args==null || args.length==0)
+            args = "-p C:\\APPLIS\\HELIOSDEV\\IntelliJWorkspace\\eco-legacy -enc UTF-8 -inc .+\\.java,.+\\.html,.+\\.jsp".split(" ");
+            //args = "-p C:\\APPLIS\\HELIOSDEV\\IntelliJWorkspace\\FolderEncoder\\src\\main\\java\\test -inc .+\\.java".split(" ");
+        ArgumentParser parser = newFor("FolderEncoder").build()
                 .defaultHelp(true)
                 .description("Re-encode folder content with a new encoding recursively.");
         parser.addArgument("-p", "--path")
@@ -23,9 +32,9 @@ public class FolderEncoder {
                 .help("The new file encoding")
                 .choices(charsetsToBeTested).setDefault("UTF-8");
         parser.addArgument("-inc", "--inc")
-                .help("Regular expressions for included paths separated by ',' ");
+                .help("Regular expressions for included paths separated by ',' ex: .+\\.java (*.java) ");
         parser.addArgument("-exc", "--exc")
-                .help("Regular expressions for excluded paths separated by ',' ");
+                .help("Regular expressions for excluded paths separated by ',' ex: .+\\.java (*.java) ");
         Namespace ns = null;
         try {
             ns = parser.parseArgs(args);
@@ -54,7 +63,7 @@ public class FolderEncoder {
     private static void encode(File folder, String targetEncoding, String[] in_exts, String[] ex_exts) {
         for (File file :folder.listFiles()) {
             CharsetMatch charsetMatch = null;
-            if (file.isDirectory())
+            if (file.isDirectory() && !file.getName().equals("out"))
                 encode(file, targetEncoding, in_exts, ex_exts);
             else {
                 nbrVisitedFiles++;
@@ -97,12 +106,47 @@ public class FolderEncoder {
                     if (file.renameTo(new File(tmpName))) {
                         try {
                             String content = null;
-                            if (originalName.endsWith(".jsp"))
-                                content = "<%@ page contentType=\"text/html; charset=UTF-8\" %>\n";
+                            String header = "<%@ page contentType=\"text/html; charset=UTF-8\" %>\n";
+                            if (originalName.endsWith(".jsp")) {
+                                content = "";
+                                String fileContent = FileUtils.readFileToString(new File(tmpName), charsetMatch.getName());
+                                String str = fileContent.replaceAll("ISO-8859-1", "UTF-8").replaceAll("iso-8859-1", "UTF-8");
+                                int start = str.indexOf("<%@ page");
+                                if ( start != -1 ) {
+                                    String currentHeader = str.substring(start, str.indexOf("%>", start)+2);
+                                    String restOfFile = str.substring(str.indexOf("%>", start)+2);
+                                    if (currentHeader.contains("contentType")) {
+                                        if (currentHeader.contains("text/html") && !currentHeader.contains("charset"))
+                                            throw new Exception("special case "+file.getAbsolutePath());
+                                        currentHeader = currentHeader.replace("ISO-8859-1", "UTF-8").replace("iso-8859-1", "UTF-8");
+                                    }else {
+                                        currentHeader = currentHeader.replace("%>", " contentType=\"text/html; charset=UTF-8\" %>");
+                                    }
+                                    content += str.substring(0, start) + currentHeader + restOfFile;
+                                }else
+                                    content += header+fileContent;
+                            }else {
+                                content += FileUtils.readFileToString(new File(tmpName), charsetMatch.getName()).replaceAll("ISO-8859-1", "UTF-8").replaceAll("iso-8859-1", "UTF-8");
+                            }
+                            //content = content.replaceAll("D:\\Donnees", "C:\\APPLIS");
+                            while (content.startsWith("null"))
+                                content = content.substring(4);
+                            //content = content.substring(content.indexOf("'à'")+1, content.indexOf("'à'")+2);
+                            StringBuffer buffer = new StringBuffer();
+                            char[] cs = content.toCharArray();
+                            for (int i=0; i<content.length(); i++) { // special char
+                                char c = cs[i];
+                                if (c == '\'' && i + 1 < content.length()) {
+                                    if (cs[i+1] >= 192 && cs[i+1] <= 255) {
+                                        buffer.append("(char)" + (int)cs[i+1]);
+                                        i+=2;
+                                    } else
+                                        buffer.append(c);
+                                } else
+                                    buffer.append(c);
+                            }
 
-                            content += FileUtils.readFileToString(new File(tmpName), charsetMatch.getName());
-                            content = content.replaceAll("D:\\Donnees", "C:\\APPLIS");
-                            FileUtils.write(new File(originalName), content, "UTF-8");
+                            FileUtils.write(new File(originalName), buffer.toString(), "UTF-8");
 
                             nbrFiles++;
                             success = true;
