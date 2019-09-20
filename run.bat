@@ -1,1 +1,1 @@
-java -cp ./target/FolderEncoder.jar FolderEncoder -p C:\APPLIS\HELIOSDEV\IntelliJWorkspace\extranet_ent_ope2 -exc .*\.svg,.*\.gif,.*\.jpg,.*\.jpeg,.*\.idea.*,.*\.svn.*,.*\.settings.*
+java -cp ./target/tools.FolderEncoder.jar tools.FolderEncoder -p C:\APPLIS\HELIOSDEV\IntelliJWorkspace\extranet_ent_ope2 -exc .*\.svg,.*\.gif,.*\.jpg,.*\.jpeg,.*\.idea.*,.*\.svn.*,.*\.settings.*
