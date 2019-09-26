@@ -1,0 +1,110 @@
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  DOCKER_DRIVER: overlay2
+
+stages:
+  - Build
+  - Build/Push Image
+  - Deploy To PFV
+
+Build:
+  image: $CI_REGISTRY/$KUBE_NAME_SPACE/java12-maven:latest
+  stage: Build
+  script:
+    - mvn install --settings ./settings.xml -DskipTests -Pope,env-prep
+    - mvn install --settings ./settings.xml -DskipTests -Pint,env-prep
+  artifacts:
+    paths:
+      - ./webapp_ope/target/ope
+      - ./webapp_int/target/intra
+
+.buildImage: &buildImage
+  image: $CI_REGISTRY/$KUBE_NAME_SPACE/dind:latest
+  script:
+    - docker-entrypoint.sh
+    - docker login -u $RC_USER -p $RC_PSW $CI_REGISTRY
+    - echo IMG_VERSION
+    - export SERVICE=eco-legacy-$APPLI
+    - export WK_FOLDER=./webapp_$APPLI/target/
+    - cp -R ./docker/* $WK_FOLDER
+    - cp -R ./shared_static_web_root $WK_FOLDER
+    - docker build --build-arg webapp_context=$WEBAPP_CONTEXT -t $SERVICE:$IMG_VERSION $WK_FOLDER
+    - docker image tag $SERVICE:$IMG_VERSION $CI_REGISTRY/$KUBE_NAME_SPACE/$SERVICE:$IMG_VERSION
+    - docker push $CI_REGISTRY/$KUBE_NAME_SPACE/$SERVICE:$IMG_VERSION
+
+OPE IMGAGE:
+  stage: Build/Push Image
+  <<: *buildImage
+  variables:
+    APPLI: ope
+    WEBAPP_CONTEXT: ope
+  dependencies:
+    - Build
+
+INT IMGAGE:
+  stage: Build/Push Image
+  <<: *buildImage
+  variables:
+    APPLI: int
+    WEBAPP_CONTEXT: intra
+  dependencies:
+    - Build
+
+# Deployment template
+.deploy_template: &deploy_template
+  image: $CI_REGISTRY/$KUBE_NAME_SPACE/gradle-kompose-kubectl:latest
+  script:
+    - docker-entrypoint.sh
+    - export SERVICE=eco-legacy-$APPLI
+    - export DEPLOY_DATE=$(date +%s)
+    - envsubst '${ENV} ${SERVICE} ${IMG_VERSION} ${DEPLOY_DATE} ${NAMESPACE} ${DNS_SUFFIX}' < ./kube/kubectl/deployment-all.yml
+    - envsubst '${ENV} ${SERVICE} ${IMG_VERSION} ${DEPLOY_DATE} ${NAMESPACE} ${DNS_SUFFIX}' < ./kube/kubectl/ingress-all.yml
+    - envsubst '${ENV} ${SERVICE} ${IMG_VERSION} ${DEPLOY_DATE} ${NAMESPACE} ${DNS_SUFFIX}' < ./kube/kubectl/deployment-all.yml | kubectl -n $NAMESPACE apply -f -
+    - envsubst '${ENV} ${SERVICE} ${IMG_VERSION} ${DEPLOY_DATE} ${NAMESPACE} ${DNS_SUFFIX}' < ./kube/kubectl/ingress-all.yml | kubectl -n $NAMESPACE apply -f -
+    - sleep 20
+    - kubectl -n $NAMESPACE get pods,services,ingress
+    - sleep 10
+    - kubectl -n $NAMESPACE get pods,services,ingress
+  environment:
+    name: $ENV_KUBE
+
+Deploy OPE:
+  <<: *deploy_template
+  stage: Deploy To PFV
+  variables:
+    APPLI: ope
+    ENV_KUBE: staging-ctn1/int
+    NAMESPACE: $KUBE_NAME_SPACE
+    DNS_SUFFIX: ctn1.pic.services.pack
+    ENV: pfv
+  when: manual
+
+Deploy INT:
+  <<: *deploy_template
+  stage: Deploy To PFV
+  variables:
+    APPLI: int
+    ENV_KUBE: staging-ctn1/int
+    NAMESPACE: $KUBE_NAME_SPACE
+    DNS_SUFFIX: ctn1.pic.services.pack
+    ENV: pfv
+  when: manual
+
+.function: &function |
+  export IMG_VERSION=0.0.21
+  file="gradle.properties"
+  if [ -f "$file" ]
+  then
+      echo "$file found."
+      while IFS='=' read -r key value
+      do
+          if [ $key = "version" ]; then
+              export RELEASE_VERSION=${value/-SNAPSHOT/}
+          fi
+      done < "$file"
+      echo "RELEASE_VERSION = " $RELEASE_VERSION
+  else
+      echo "$file not found."
+  fi
+before_script:
+  - *function
