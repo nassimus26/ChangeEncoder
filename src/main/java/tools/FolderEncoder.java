@@ -66,7 +66,7 @@ public class FolderEncoder {
     public static void main(String[] args) throws IOException {
         //-p C:\APPLIS\HELIOSDEV\IntelliJWorkspace\extranet_ent_ope2 -exc .*\.svg,.*\.gif,.*\.jpg,.*\.jpeg,.*\.idea.*,.*\.svn.*,.*\.settings.*,.*\.classpath.*,.*\.project.*,.*\.jar,.*\.iml
         if (args==null || args.length==0)
-            args = ("-p C:\\APPLIS\\HELIOSDEV\\IntelliJWorkspace\\eco-legacy2 -exc "+exclude).split(" ");
+            args = ("-p C:\\APPLIS\\target\\rubriques -exc "+exclude).split(" ");
             //args = ("-p C:\\APPLIS\\HELIOSDEV\\IntelliJWorkspace\\eco-legacy2 -enc UTF-8 -inc .+\\.java,.+\\.html,.+\\.jsp,.+\\.csv,.+\\.css,.+\\.js," +
              //               ".+\\.properties").split(" ");
 
@@ -103,7 +103,8 @@ public class FolderEncoder {
         if (ex_exts!=null)
             ex_exts_ = ex_exts.split(",");
         File folder = new File(path);
-
+        File gitIgnoreFile = new File(".gitignore");
+        FileUtils.copyFile(gitIgnoreFile,  new File(folder.getAbsoluteFile()+"/"+gitIgnoreFile.getName()));
         encode(folder, ns.getString("encoding"), in_exts_, ex_exts_);
         System.out.println("----> Task ends : "+nbrVisitedFiles+" files visited, re-encoding "+nbrFiles+" files.");
     }
@@ -157,20 +158,25 @@ public class FolderEncoder {
                         while (content.startsWith("null"))
                             content = content.substring(4);
                         StringBuffer buffer = new StringBuffer();
+                        /*
                         char[] cs = content.toCharArray();
                         for (int i=0; i<content.length(); i++) { // special char
                             char c = cs[i];
                             if (c == '\'' && i + 1 < content.length()) {
                                 if (cs[i+1] >= 192 && cs[i+1] <= 255) {
-                                    buffer.append("(char)" + (int)cs[i+1]);
-                                    i+=2;
+                                    String before = content.substring(i-8, i);
+                                    if (before.equals("replace(")){
+                                        buffer.append("(char)" + (int)cs[i+1]);
+                                        i+=2;
+                                    } else
+                                        buffer.append(c);
                                 } else
                                     buffer.append(c);
                             } else
                                 buffer.append(c);
-                        }
+                        }*/
 
-                        FileUtils.write(new File(fileName), buffer.toString(), targetEncoding);
+                        FileUtils.write(new File(fileName), content, targetEncoding);
                         if (fileName.endsWith("_fr.properties") || fileName.endsWith("_en.properties")) {
                             String newName = fileName.replace("_fr.properties", "_fr.utf8.properties");
                             newName = newName.replace("_en.properties", "_en.utf8.properties");
@@ -205,7 +211,8 @@ public class FolderEncoder {
 
     private static String fixPageEncoding(String targetEncoding, String content) {
         //big error
-        return content.replaceAll("ISO-8859-1", targetEncoding).replaceAll("iso-8859-1", targetEncoding).replaceAll("Cp1252", targetEncoding).replaceAll(
+        return content.replaceAll("ISO-8859-1", targetEncoding).replaceAll("iso-8859-1", targetEncoding).replaceAll("windows-1250", targetEncoding).replaceAll("Cp1252",
+                targetEncoding).replaceAll(
                 "windows-1252", targetEncoding);
         //.replaceAll("text/html", "text/html; charset="+targetEncoding)
     }
